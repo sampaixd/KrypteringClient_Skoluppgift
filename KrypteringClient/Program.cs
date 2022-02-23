@@ -15,14 +15,12 @@ namespace KrypteringClient
         {
             string address = "127.0.0.1";
             int port = 8001;
-            TcpClient tcpClient;
-            NetworkStream tcpStream;
 
             Console.WriteLine("Connecting to server...");
-            tcpClient = new TcpClient();
+            TcpClient tcpClient = new TcpClient();
             tcpClient.Connect(address, port);
             Console.WriteLine("Connected to server!");
-            tcpStream = tcpClient.GetStream();
+            NetworkStream tcpStream = tcpClient.GetStream();
 
             bool connected = true;
             while (connected)
@@ -45,7 +43,7 @@ namespace KrypteringClient
                         break;
 
                     case 3:
-                        SocketComm.SendMsg(tcpStream, "exit");
+                        SocketComm.SendMsg(tcpStream, "quit");
                         connected = false;
                         break;
 
@@ -60,7 +58,56 @@ namespace KrypteringClient
 
         public static void login(TcpClient tcpClient, NetworkStream tcpStream)
         {
+            bool loggingIn = true;
+            bool insertingPassword = false;
+            while (loggingIn)
+            { 
+                Console.WriteLine("Please enter your username, or 'back' if you wish to go back to main menu");
+                string username = Console.ReadLine();
+                SocketComm.SendMsg(tcpStream, username);
+                if (username == "back")
+                    loggingIn = false;
+                else
+                {
+                    bool foundUser = ServerGetTrueOrFalseResponse(tcpStream);
+                    if (foundUser)
+                    {
+                        loggingIn = false;
+                        insertingPassword = true;
+                    }
+                    else
+                        Console.WriteLine("Could not find user, please try again");
+                }
+            }
+            int passwordAttempts = 0;
+            while (insertingPassword)
+            {
+                Console.WriteLine("PLease enter your password");
+                string password = Console.ReadLine();
+                SocketComm.SendMsg(tcpStream, password);
+                bool correctPassword = ServerGetTrueOrFalseResponse(tcpStream);
+                if (correctPassword)
+                { }//TODO here
+                else
+                {
+                    Console.WriteLine("Incorrect password");
+                    passwordAttempts++;
+                    if (passwordAttempts > 2)
+                    { 
+                        insertingPassword = false;
+                        Console.WriteLine("failed inserting the correct password 3 times, returning to main menu...");
+                    }
+                }
+            }
+        }
 
+        public static bool ServerGetTrueOrFalseResponse(NetworkStream tcpStream)
+        {
+            string serverResponse = SocketComm.RecvMsg(tcpStream);
+            if (serverResponse == "accepted")
+                return true;
+            else
+                return false;
         }
         public static int ParseInt()
         {

@@ -21,13 +21,24 @@ namespace KrypteringClient
             return msg;
         }
 
-        public static void SendMsg(NetworkStream tcpStream, string msg)
+        public static void SendMsg(NetworkStream tcpStream, string message)
         {
-            String message = Console.ReadLine();
             byte[] bMessage = Encoding.UTF8.GetBytes(message);
             // Skicka iväg meddelandet:
             tcpStream.Write(bMessage, 0, bMessage.Length);
 
         }
+        // used for acuiring other user information, chat room information or chat logs
+        public static List<string> RecvListOfStrings(NetworkStream tcpStream)
+        {
+            List<string> Content = new List<string>();
+            string newContent = RecvMsg(tcpStream);
+            while (newContent != "end")
+            {
+                Content.Add(newContent);
+                newContent = RecvMsg(tcpStream);
+            }
+            return Content;
+        } 
     }
 }
