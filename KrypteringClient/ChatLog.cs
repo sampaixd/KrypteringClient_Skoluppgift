@@ -16,19 +16,24 @@ namespace KrypteringClient
             this.chatMessages = new List<Message>();
         }
 
-        public void AddNewMessages(List<string> newMessages)
+        public void AddMultipleNewMessages(List<string> newMessages)
         {
             foreach (string formattedMessage in newMessages)
             {
-                char[] formattedMessageChar = formattedMessage.ToCharArray();
-                int msgId = GetMsgId(formattedMessageChar);
-                int msgIdLength = Convert.ToString(msgId).Length + 1;   // used for upcoming methods
-                string msgContent = GetMsgContent(formattedMessageChar, msgIdLength);
-                string msgSender = GetMsgSender(formattedMessageChar,msgIdLength + msgContent.Length + 1);
-                chatMessages.Add(new Message(msgSender, msgContent, msgIdLength));
-                chatMessages.Last().ReverseMsg();
+                AddNewMessage(formattedMessage);
             }
         }
+        public void AddNewMessage(string newMessage)
+        {
+            char[] newMessageChar = newMessage.ToCharArray();
+            int msgId = GetMsgId(newMessageChar);
+            int msgIdLength = Convert.ToString(msgId).Length + 1;   // used for upcoming methods
+            string msgContent = GetMsgContent(newMessageChar, msgIdLength);
+            string msgSender = GetMsgSender(newMessageChar, msgIdLength + msgContent.Length + 1);
+            chatMessages.Add(new Message(msgSender, msgContent, msgIdLength));
+            chatMessages.Last().ReverseMsg();
+        }
+
 
         public int GetMsgId(char[] formattedMessageChar)
         {

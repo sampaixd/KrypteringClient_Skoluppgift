@@ -25,7 +25,10 @@ namespace KrypteringClient
             foreach (ChatLog chatLog in chatLogs)
             {
                 if (chatLog.ChatId == findChatId)
+                { 
                     chatLog.AddNewMessages(newMessages);
+                    break;
+                }
             }
         }
 
