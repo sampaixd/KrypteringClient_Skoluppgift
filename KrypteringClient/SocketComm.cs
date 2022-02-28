@@ -24,7 +24,6 @@ namespace KrypteringClient
         public static void SendMsg(NetworkStream tcpStream, string message)
         {
             byte[] bMessage = Encoding.UTF8.GetBytes(message);
-            // Skicka iväg meddelandet:
             tcpStream.Write(bMessage, 0, bMessage.Length);
 
         }

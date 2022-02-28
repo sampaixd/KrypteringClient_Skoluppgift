@@ -26,7 +26,7 @@ namespace KrypteringClient
             {
                 if (chatLog.ChatId == findChatId)
                 { 
-                    chatLog.AddNewMessages(newMessages);
+                    chatLog.AddMultipleNewMessages(newMessages);
                     break;
                 }
             }

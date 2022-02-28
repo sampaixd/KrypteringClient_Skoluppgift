@@ -37,10 +37,12 @@ namespace KrypteringClient
                 {
                     case 1:
                         SocketComm.SendMsg(tcpStream, "create account");
+                        CreateNewUser(tcpStream);
                         break;
 
                     case 2:
                         SocketComm.SendMsg(tcpStream, "login");
+                        Login(tcpClient, tcpStream);
                         break;
 
                     case 3:
@@ -57,7 +59,33 @@ namespace KrypteringClient
 
         }
 
-        static void login(TcpClient tcpClient, NetworkStream tcpStream)
+        static void CreateNewUser(NetworkStream tcpStream)
+        {
+            bool creatingUser = true;
+            while(creatingUser)
+            { 
+                Console.WriteLine("Please enter your desired username or 'back' if you wish to go back to main menu");
+                string username = Console.ReadLine();
+                if (username == "back")
+                {
+                    SocketComm.SendMsg(tcpStream, "exit");
+                    return;
+                }
+                SocketComm.SendMsg(tcpStream, username);
+                bool nameIsAvalible = ServerGetTrueOrFalseResponse(tcpStream);
+                if (nameIsAvalible)
+                {
+                    Console.WriteLine("Please enter your password");
+                    string password = Console.ReadLine();
+                    SocketComm.SendMsg(tcpStream, password);
+                    Console.WriteLine();
+                }
+                else
+                    Console.WriteLine("Name was taken, please enter a different name");
+            }
+        }
+
+        static void Login(TcpClient tcpClient, NetworkStream tcpStream)
         {
             bool loggingIn = true;
             bool insertingPassword = false;
@@ -108,8 +136,9 @@ namespace KrypteringClient
 
         static void LoggedInMenu(TcpClient tcpClient, NetworkStream tcpStream, string username)
         {
+            Console.Clear();
             List<string> userInfo = SocketComm.RecvListOfStrings(tcpStream);
-            List<string> chatRomms = SocketComm.RecvListOfStrings(tcpStream);
+            List<string> chatRooms = SocketComm.RecvListOfStrings(tcpStream);
             bool loggedIn = true;
             Console.WriteLine("--------------------------------------------------------------");
             Console.WriteLine($"Welcome {username}! please enter the action you wish to take");
@@ -128,13 +157,13 @@ namespace KrypteringClient
                         break;
 
                     case 2:
-                        ViewAllChatRooms(userInfo);
-                        SelectChatRoom(tcpClient, tcpStream);
+                        ViewAllChatRooms(chatRooms);
+                        SelectChatRoom(tcpClient, tcpStream, chatRooms);
                         break;
 
                     case 3:
                         userInfo = SocketComm.RecvListOfStrings(tcpStream);
-                        chatRomms = SocketComm.RecvListOfStrings(tcpStream);
+                        chatRooms = SocketComm.RecvListOfStrings(tcpStream);
                         break;
 
                     case 4:
@@ -155,7 +184,7 @@ namespace KrypteringClient
             {
                 string username = user.Substring(0, user.IndexOf("|"));
                 string onlinestatus = user.Substring(user.IndexOf("|") + 1, user.Length - user.IndexOf("|") - 1);
-                if (onlinestatus == "false")
+                if (onlinestatus == "False")
                     onlinestatus = "offline";
                 else
                     onlinestatus = "online";
@@ -165,22 +194,36 @@ namespace KrypteringClient
 
         static void ViewAllChatRooms(List<string> chatRooms)
         {
+            Console.WriteLine("0 - create a new chat room");
             foreach (string chatRoom in chatRooms)
             {
                 string roomId = chatRoom.Substring(0, chatRoom.IndexOf("|"));
                 string connectedUsers = chatRoom.Substring(chatRoom.IndexOf("|") + 1, chatRoom.Length - chatRoom.IndexOf("|") - 1);
-                Console.WriteLine($"Chat id: {roomId} - connected users: {connectedUsers}");
+                Console.WriteLine($"Chat id: {roomId + 1} - connected users: {connectedUsers}");
             }
         }
 
-        static void SelectChatRoom(TcpClient tcpClient, NetworkStream tcpStream)
+        static void SelectChatRoom(TcpClient tcpClient, NetworkStream tcpStream, List<string> chatRooms)
         {
-            int selectedChatRoom = ParseInt();
-            if (selectedChatRoom != -1)
-            {
+            Console.WriteLine("Please enter the number of the chat ID that you wish to join, or enter -1 if you wish to go back");
+            while (true)
+            { 
+                int selectedChatRoom = ParseInt() - 1;
+                if (selectedChatRoom == -2)
+                    return;
+                else if (selectedChatRoom == -1)
+                {
+                    SocketComm.SendMsg(tcpStream, Convert.ToString(selectedChatRoom));
+                    Console.WriteLine("new chat room created!");
+                    chatRooms.Add($"{chatRooms.Count}|{0}");
+                }
+                SocketComm.SendMsg(tcpStream, Convert.ToString(selectedChatRoom));
+
                 bool foundChatRoom = ServerGetTrueOrFalseResponse(tcpStream);
                 if (foundChatRoom)
                     ConnectedToChatRoom();
+                else
+                    Console.WriteLine("Could not find chat room, please try again");
             }
         }
 
