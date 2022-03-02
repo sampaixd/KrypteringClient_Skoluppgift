@@ -61,6 +61,23 @@ namespace KrypteringClient
             return msgSender;
         }
 
+        public List<string> GetAllMessages()
+        {
+            List<string> messages = new List<string>();
+            foreach (Message msg in chatMessages)
+                messages.Add($"{msg.SenderName}|{msg.MessageContent}");
+            return messages;
+        }
+
+        public string GetLastMessage()
+        {
+            Message msg = chatMessages.Last();
+            return $"{msg.SenderName}|{msg.MessageContent}";
+        }
+
+
         public int ChatId { get { return chatId; } }
+
+        public int ChatMessageCount { get{ return chatMessages.Count; } }
     }
 }

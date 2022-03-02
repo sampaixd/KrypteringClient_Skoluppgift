@@ -139,6 +139,8 @@ namespace KrypteringClient
             Console.Clear();
             List<string> userInfo = SocketComm.RecvListOfStrings(tcpStream);
             List<string> chatRooms = SocketComm.RecvListOfStrings(tcpStream);
+            for (int i = 0; i < chatRooms.Count; i++)
+                ChatLogManager.AddNewChatLog();
             bool loggedIn = true;
             Console.WriteLine("--------------------------------------------------------------");
             Console.WriteLine($"Welcome {username}! please enter the action you wish to take");
@@ -158,7 +160,7 @@ namespace KrypteringClient
 
                     case 2:
                         ViewAllChatRooms(chatRooms);
-                        SelectChatRoom(tcpClient, tcpStream, chatRooms);
+                        SelectChatRoom(tcpClient, tcpStream, chatRooms, username);
                         break;
 
                     case 3:
@@ -203,43 +205,100 @@ namespace KrypteringClient
             }
         }
 
-        static void SelectChatRoom(TcpClient tcpClient, NetworkStream tcpStream, List<string> chatRooms)
+        static void SelectChatRoom(TcpClient tcpClient, NetworkStream tcpStream, List<string> chatRooms, string name)
         {
+            SocketComm.SendMsg(tcpStream, "chatroom");
             Console.WriteLine("Please enter the number of the chat ID that you wish to join, or enter -1 if you wish to go back");
             while (true)
             { 
                 int selectedChatRoom = ParseInt() - 1;
                 if (selectedChatRoom == -2)
+                {
+                    SocketComm.SendMsg(tcpStream, Convert.ToString(selectedChatRoom));
                     return;
+                }
                 else if (selectedChatRoom == -1)
                 {
                     SocketComm.SendMsg(tcpStream, Convert.ToString(selectedChatRoom));
                     Console.WriteLine("new chat room created!");
                     chatRooms.Add($"{chatRooms.Count}|{0}");
+                    ChatLogManager.AddNewChatLog();
+                    continue;
                 }
                 SocketComm.SendMsg(tcpStream, Convert.ToString(selectedChatRoom));
 
                 bool foundChatRoom = ServerGetTrueOrFalseResponse(tcpStream);
                 if (foundChatRoom)
-                    ConnectedToChatRoom();
+                { 
+                    ConnectedToChatRoom(tcpStream, selectedChatRoom, name);
+                    break;
+                }
                 else
                     Console.WriteLine("Could not find chat room, please try again");
             }
         }
 
-        static void ConnectedToChatRoom()   // TODO
+        static void ConnectedToChatRoom(NetworkStream tcpStream, int chatRoomId, string name)   // TODO
         {
             Console.WriteLine("Connecting...");
             Console.WriteLine("Loading chat logs...");
+            List<string> messages = SocketComm.RecvListOfStrings(tcpStream);
+            ChatLogManager.AddMultipleNewMessages(chatRoomId, messages);
+            bool connected = true;
+            List<char> ownMessage = new List<char>();
+            Thread thread = new Thread(() => ListenForIncomingChatMessages(tcpStream, ownMessage, chatRoomId));
+            thread.Start();
+            
+            while (connected)
+            {
+                ConsoleKeyInfo newChar = Console.ReadKey();
+                if (newChar.KeyChar == '\b' && ownMessage.Count > 0)
+                {
+                    Console.SetCursorPosition(0, ownMessage.Count);
+                    Console.Write(" \b");
+                    ownMessage.RemoveAt(ownMessage.Count - 1);
+
+                }
+                else if (newChar.KeyChar == '\r' && ownMessage.Count > 0)
+                {
+                    string message = "";
+                    for (int i = ownMessage.Count - 1; i >= 0; i--)
+                        message += ownMessage[i];   // AddNewMessage automatically reverses message, therefore we reverse the message beforehand
+                    string formattedMsg = $"{ChatLogManager.ChatMessageCount(chatRoomId)}|{message}|{name}";
+                    ChatLogManager.AddNewMessage(chatRoomId, formattedMsg);
+                    SocketComm.SendMsg(tcpStream, formattedMsg);
+                    WriteNewMessage(message, "you");
+                    ownMessage.Clear();
+                }
+                else
+                    ownMessage.Add(newChar.KeyChar);
+                
+            }
+
         }
 
-        static void ListenForIncomingChatMessages(NetworkStream tcpStream)
+        static void ListenForIncomingChatMessages(NetworkStream tcpStream, List<char> ownMessage, int chatRoomId)
         {
             string newMessage = SocketComm.RecvMsg(tcpStream);
+            ChatLogManager.AddNewMessage(chatRoomId, newMessage);
+            
 
         }
 
-        
+        static void WriteNewMessage(string newMsg, string sender)
+        {
+            Console.SetCursorPosition(0, Console.CursorTop - 1);
+            Console.WriteLine($"{sender}: {newMsg}");
+        }
+
+        static void ClearCurrentConsoleLine()
+        {
+            int currentLineCursor = Console.CursorTop;
+            Console.SetCursorPosition(0, Console.CursorTop);
+            Console.Write(new string(' ', Console.WindowWidth));
+            Console.SetCursorPosition(0, currentLineCursor);
+        }
+
 
         static bool ServerGetTrueOrFalseResponse(NetworkStream tcpStream)
         {
