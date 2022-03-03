@@ -22,57 +22,28 @@ namespace KrypteringClient
         }
 
 
-        public static void AddMultipleNewMessages(int ChatId, List<string> newMessages)
+        public static void AddMultipleNewMessages(int chatId, List<string> newMessages)
         {
-            foreach (ChatLog chatLog in chatLogs)
-            {
-                if (chatLog.ChatId == ChatId)
-                { 
-                    chatLog.AddMultipleNewMessages(newMessages);
-                    break;
-                }
-            }
+            chatLogs[chatId].AddMultipleNewMessages(newMessages);
         }
 
         public static void AddNewMessage(int chatId, string newMessage)
         {
-            foreach (ChatLog chatLog in chatLogs)
-            {
-                if (chatLog.ChatId == chatId)
-                {
-                    chatLog.AddNewMessage(newMessage);
-                    break;
-                }
-            }
+            chatLogs[chatId].AddNewMessage(newMessage);
         }
 
         public static int ChatMessageCount(int chatId)
         {
-            foreach (ChatLog chatLog in chatLogs)
-            {
-                if (chatLog.ChatId == chatId)
-                    return chatLog.ChatMessageCount;
-            }
-            return 0;
+            return chatLogs[chatId].ChatMessageCount;
         }
 
-        public List<string> GetAllMessages(int roomId)
+        public static List<string> GetAllMessages(int roomId)
         {
-            foreach (ChatLog chatLog in chatLogs)
-            {
-                if (chatLog.ChatId == roomId)
-                    return chatLog.GetAllMessages();
-            }
-            return null;
+            return chatLogs[roomId].GetAllMessages();
         }
-        public string GetLastMessage(int roomId)
+        public static string GetLastMessage(int roomId)
         {
-            foreach (ChatLog chatLog in chatLogs)
-            {
-                if (chatLog.ChatId == roomId)
-                    return chatLog.GetLastMessage();
-            }
-            return "";
+            return chatLogs[roomId].GetLastMessage();
         }
 
 

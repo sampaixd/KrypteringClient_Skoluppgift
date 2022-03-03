@@ -72,7 +72,7 @@ namespace KrypteringClient
         public string GetLastMessage()
         {
             Message msg = chatMessages.Last();
-            return $"{msg.SenderName}|{msg.MessageContent}";
+            return $"{msg.SenderName}: {msg.MessageContent}";
         }
 
 

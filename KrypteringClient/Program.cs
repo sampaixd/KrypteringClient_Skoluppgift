@@ -12,6 +12,7 @@ namespace KrypteringClient
 {
     internal class Program
     {
+        static bool loadingMessage = false; // best solution I could find for not being able to change ownMessage list while looping through it
         static void Main(string[] args)
         {
             string address = "127.0.0.1";
@@ -112,7 +113,7 @@ namespace KrypteringClient
             int passwordAttempts = 0;
             while (insertingPassword)
             {
-                Console.WriteLine("PLease enter your password");
+                Console.WriteLine("Please enter your password");
                 string password = Console.ReadLine();
                 SocketComm.SendMsg(tcpStream, password);
                 bool correctPassword = ServerGetTrueOrFalseResponse(tcpStream);
@@ -164,6 +165,7 @@ namespace KrypteringClient
                         break;
 
                     case 3:
+                        SocketComm.SendMsg(tcpStream, "refresh");
                         userInfo = SocketComm.RecvListOfStrings(tcpStream);
                         chatRooms = SocketComm.RecvListOfStrings(tcpStream);
                         break;
@@ -244,6 +246,18 @@ namespace KrypteringClient
             Console.WriteLine("Loading chat logs...");
             List<string> messages = SocketComm.RecvListOfStrings(tcpStream);
             ChatLogManager.AddMultipleNewMessages(chatRoomId, messages);
+            List<string> chatLog = ChatLogManager.GetAllMessages(chatRoomId);
+            foreach (string message in chatLog)
+            {
+                string sender = message.Substring(0, message.IndexOf("|"));
+                string msgContent = message.Substring(message.IndexOf("|") + 1, message.Length - message.IndexOf("|") - 1);
+                if (sender == name)
+                    Console.WriteLine($"you: {msgContent}");
+                else
+                    Console.WriteLine($"{sender}: {msgContent}");
+            }
+            Console.WriteLine();
+            Console.Write("Your message: ");
             bool connected = true;
             List<char> ownMessage = new List<char>();
             Thread thread = new Thread(() => ListenForIncomingChatMessages(tcpStream, ownMessage, chatRoomId));
@@ -251,29 +265,42 @@ namespace KrypteringClient
             
             while (connected)
             {
-                ConsoleKeyInfo newChar = Console.ReadKey();
-                if (newChar.KeyChar == '\b' && ownMessage.Count > 0)
-                {
-                    Console.SetCursorPosition(0, ownMessage.Count);
-                    Console.Write(" \b");
-                    ownMessage.RemoveAt(ownMessage.Count - 1);
-
+                while (!loadingMessage)
+                { 
+                    ConsoleKeyInfo newChar = Console.ReadKey();
+                    if (newChar.KeyChar == '\b' && ownMessage.Count > 0)
+                    {
+                        Console.Write(" \b");
+                        ownMessage.RemoveAt(ownMessage.Count - 1);
+                    }
+                    else if (newChar.KeyChar == '\r' && ownMessage.Count > 0)
+                    {
+                        string message = "";
+                        for (int i = ownMessage.Count - 1; i >= 0; i--)
+                            message += ownMessage[i];   // AddNewMessage automatically reverses message, therefore we reverse the message beforehand
+                        if (message == "evael/")
+                        {
+                            SocketComm.SendMsg(tcpStream, message);
+                            connected = false;
+                            loadingMessage = true;
+                            Console.WriteLine("You have disconnected from the chat room");
+                        }
+                        else
+                        { 
+                            string formattedMsg = $"{ChatLogManager.ChatMessageCount(chatRoomId)}|{message}|{name}";
+                            ChatLogManager.AddNewMessage(chatRoomId, formattedMsg);
+                            SocketComm.SendMsg(tcpStream, formattedMsg);
+                            WriteNewMessage($"you: {new string(ownMessage.ToArray())}");
+                            ownMessage.Clear();
+                            WriteOwnMessage(ownMessage);
+                        }
+                    }
+                    else
+                        ownMessage.Add(newChar.KeyChar);
                 }
-                else if (newChar.KeyChar == '\r' && ownMessage.Count > 0)
-                {
-                    string message = "";
-                    for (int i = ownMessage.Count - 1; i >= 0; i--)
-                        message += ownMessage[i];   // AddNewMessage automatically reverses message, therefore we reverse the message beforehand
-                    string formattedMsg = $"{ChatLogManager.ChatMessageCount(chatRoomId)}|{message}|{name}";
-                    ChatLogManager.AddNewMessage(chatRoomId, formattedMsg);
-                    SocketComm.SendMsg(tcpStream, formattedMsg);
-                    WriteNewMessage(message, "you");
-                    ownMessage.Clear();
-                }
-                else
-                    ownMessage.Add(newChar.KeyChar);
-                
+                loadingMessage = false;
             }
+            thread.Abort();
 
         }
 
@@ -281,14 +308,26 @@ namespace KrypteringClient
         {
             string newMessage = SocketComm.RecvMsg(tcpStream);
             ChatLogManager.AddNewMessage(chatRoomId, newMessage);
-            
-
+            string formattedMessage = ChatLogManager.GetLastMessage(chatRoomId);
+            WriteNewMessage(formattedMessage);
+            WriteOwnMessage(ownMessage);
         }
 
-        static void WriteNewMessage(string newMsg, string sender)
+        static void WriteNewMessage(string newMsg)
         {
             Console.SetCursorPosition(0, Console.CursorTop - 1);
-            Console.WriteLine($"{sender}: {newMsg}");
+            Console.WriteLine(newMsg);
+            ClearCurrentConsoleLine();
+        }
+
+        static void WriteOwnMessage(List<char> ownMessage)
+        {
+            loadingMessage = true;
+            Thread.Sleep(10);   // could sometimes allow items to be added to list without a small timeout
+            string ownMessageString = new string(ownMessage.ToArray());
+            Console.WriteLine();
+            Console.Write($"Your message: {ownMessageString}");
+            loadingMessage = false;
         }
 
         static void ClearCurrentConsoleLine()
@@ -323,7 +362,10 @@ namespace KrypteringClient
                     Console.WriteLine("ERROR! " + e.Message);
                 }
             }
+            void temp()
+            {
 
+            }
         }
     }
 }

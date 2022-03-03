@@ -13,20 +13,20 @@ namespace KrypteringClient
     {
         public static string RecvMsg(NetworkStream tcpStream)
         {
-            Console.WriteLine("Waiting to recieve message...");
+            //Console.WriteLine("Waiting to recieve message...");
             byte[] bMsg = new byte[256];
             int bReadSize = tcpStream.Read(bMsg, 0, bMsg.Length);
             string msg = "";
             for (int i = 0; i < bReadSize; i++)
                 msg += Convert.ToChar(bMsg[i]);
-            Console.WriteLine("Recieved message: " + msg);
+            //Console.WriteLine("Recieved message: " + msg);
 
             return msg;
         }
 
         public static void SendMsg(NetworkStream tcpStream, string message)
         {
-            Console.WriteLine("Sending message: " + message);
+            //Console.WriteLine("Sending message: " + message);
             byte[] bMessage = Encoding.UTF8.GetBytes(message);
             tcpStream.Write(bMessage, 0, bMessage.Length);
             Thread.Sleep(50);   // avoids multiple messages being sent at once
