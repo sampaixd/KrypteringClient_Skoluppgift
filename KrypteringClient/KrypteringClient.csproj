@@ -45,9 +45,11 @@
   <ItemGroup>
     <Compile Include="ChatLog.cs" />
     <Compile Include="ChatLogManager.cs" />
+    <Compile Include="InvalidServerResponseException.cs" />
     <Compile Include="Message.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="ServerUnavalibleException.cs" />
     <Compile Include="SocketComm.cs" />
   </ItemGroup>
   <ItemGroup>

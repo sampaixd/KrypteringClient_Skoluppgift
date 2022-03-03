@@ -1,10 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.IO;
-using System.Net;
 using System.Net.Sockets;
 using System.Threading;
 
@@ -17,14 +12,27 @@ namespace KrypteringClient
         {
             string address = "127.0.0.1";
             int port = 8001;
-
+            bool connected = true;
             Console.WriteLine("Connecting to server...");
             TcpClient tcpClient = new TcpClient();
-            tcpClient.Connect(address, port);
+            try
+            {
+                tcpClient = ConnectToServer(tcpClient, address, port);
+            }
+            catch (ServerUnavalibleException)
+            {
+                Console.WriteLine("Server is currently unavalible, please try again at a later date");
+                connected = false;
+            }
+            catch(Exception e)
+            {
+                Console.WriteLine(e.Message);
+                connected = false;
+            }
             Console.WriteLine("Connected to server!");
             NetworkStream tcpStream = tcpClient.GetStream();
 
-            bool connected = true;
+            
             while (connected)
             {
                 Console.WriteLine("--------------------------------------------------------------");
@@ -60,6 +68,25 @@ namespace KrypteringClient
 
         }
 
+        static TcpClient ConnectToServer(TcpClient tcpClient, string address, int port)
+        {
+            int attempts = 0;
+            while (attempts < 10)
+            {
+                try
+                {
+                    tcpClient.Connect(address, port);
+                    return tcpClient;
+                }
+                catch (Exception)
+                {
+                    Console.WriteLine("Could not connect to server, trying again in 10 seconds...");
+                    Thread.Sleep(10000);
+                }
+            }
+            throw new ServerUnavalibleException();
+        }
+
         static void CreateNewUser(NetworkStream tcpStream)
         {
             bool creatingUser = true;
@@ -73,16 +100,28 @@ namespace KrypteringClient
                     return;
                 }
                 SocketComm.SendMsg(tcpStream, username);
-                bool nameIsAvalible = ServerGetTrueOrFalseResponse(tcpStream);
-                if (nameIsAvalible)
+                try
                 {
-                    Console.WriteLine("Please enter your password");
-                    string password = Console.ReadLine();
-                    SocketComm.SendMsg(tcpStream, password);
-                    Console.WriteLine();
+                    bool nameIsAvalible = ServerGetTrueOrFalseResponse(tcpStream);
+                    if (nameIsAvalible)
+                    {
+                        Console.WriteLine("Please enter your password");
+                        string password = Console.ReadLine();
+                        SocketComm.SendMsg(tcpStream, password);
+                        Console.WriteLine("account created!");
+                        return;
+                    }
+                    else
+                        Console.WriteLine("Name was taken, please enter a different name");
                 }
-                else
-                    Console.WriteLine("Name was taken, please enter a different name");
+                catch(InvalidServerResponseException)
+                {
+                    Console.WriteLine("ERROR! Invalid response from the server");
+                }
+                catch(Exception e)
+                {
+                    Console.WriteLine(e.Message);
+                }
             }
         }
 
@@ -100,14 +139,25 @@ namespace KrypteringClient
                     loggingIn = false;
                 else
                 {
-                    bool foundUser = ServerGetTrueOrFalseResponse(tcpStream);
-                    if (foundUser)
+                    try
                     {
-                        loggingIn = false;
-                        insertingPassword = true;
+                        bool foundUser = ServerGetTrueOrFalseResponse(tcpStream);
+                        if (foundUser)
+                        {
+                            loggingIn = false;
+                            insertingPassword = true;
+                        }
+                        else
+                            Console.WriteLine("Could not find user, please try again");
                     }
-                    else
-                        Console.WriteLine("Could not find user, please try again");
+                    catch (InvalidServerResponseException)
+                    {
+                        Console.WriteLine("ERROR! Invalid response from the server");
+                    }
+                    catch (Exception e)
+                    {
+                        Console.WriteLine(e.Message);
+                    }
                 }
             }
             int passwordAttempts = 0;
@@ -116,21 +166,32 @@ namespace KrypteringClient
                 Console.WriteLine("Please enter your password");
                 string password = Console.ReadLine();
                 SocketComm.SendMsg(tcpStream, password);
-                bool correctPassword = ServerGetTrueOrFalseResponse(tcpStream);
-                if (correctPassword)
-                {
-                    insertingPassword = false;
-                    LoggedInMenu(tcpClient, tcpStream, username);
-                }
-                else
-                {
-                    Console.WriteLine("Incorrect password");
-                    passwordAttempts++;
-                    if (passwordAttempts >= 3)
-                    { 
+                try
+                { 
+                    bool correctPassword = ServerGetTrueOrFalseResponse(tcpStream);
+                    if (correctPassword)
+                    {
                         insertingPassword = false;
-                        Console.WriteLine("failed inserting the correct password 3 times, returning to main menu...");
+                        LoggedInMenu(tcpClient, tcpStream, username);
                     }
+                    else
+                    {
+                        Console.WriteLine("Incorrect password");
+                        passwordAttempts++;
+                        if (passwordAttempts >= 3)
+                        { 
+                            insertingPassword = false;
+                            Console.WriteLine("failed inserting the correct password 3 times, returning to main menu...");
+                        }
+                    }
+                }
+                catch (InvalidServerResponseException)
+                {
+                    Console.WriteLine("ERROR! Invalid response from the server");
+                }
+                catch(Exception e)
+                {
+                    Console.WriteLine(e.Message);
                 }
             }
         }
@@ -168,6 +229,7 @@ namespace KrypteringClient
                         SocketComm.SendMsg(tcpStream, "refresh");
                         userInfo = SocketComm.RecvListOfStrings(tcpStream);
                         chatRooms = SocketComm.RecvListOfStrings(tcpStream);
+                        Console.WriteLine("users and chatrooms updated!");
                         break;
 
                     case 4:
@@ -203,7 +265,7 @@ namespace KrypteringClient
             {
                 string roomId = chatRoom.Substring(0, chatRoom.IndexOf("|"));
                 string connectedUsers = chatRoom.Substring(chatRoom.IndexOf("|") + 1, chatRoom.Length - chatRoom.IndexOf("|") - 1);
-                Console.WriteLine($"Chat id: {roomId + 1} - connected users: {connectedUsers}");
+                Console.WriteLine($"Chat id: {Convert.ToInt32(roomId) + 1} - connected users: {connectedUsers}");
             }
         }
 
@@ -213,8 +275,8 @@ namespace KrypteringClient
             Console.WriteLine("Please enter the number of the chat ID that you wish to join, or enter -1 if you wish to go back");
             while (true)
             { 
-                int selectedChatRoom = ParseInt() - 1;
-                if (selectedChatRoom == -2)
+                int selectedChatRoom = ParseInt() - 1;  // since option 0 is to create a new chat room, the chat rooms ID got pushed forward by 1, although they have
+                if (selectedChatRoom == -2)             // a starting index of 0 in the database
                 {
                     SocketComm.SendMsg(tcpStream, Convert.ToString(selectedChatRoom));
                     return;
@@ -228,15 +290,25 @@ namespace KrypteringClient
                     continue;
                 }
                 SocketComm.SendMsg(tcpStream, Convert.ToString(selectedChatRoom));
-
-                bool foundChatRoom = ServerGetTrueOrFalseResponse(tcpStream);
-                if (foundChatRoom)
-                { 
-                    ConnectedToChatRoom(tcpStream, selectedChatRoom, name);
-                    break;
+                try
+                {
+                    bool foundChatRoom = ServerGetTrueOrFalseResponse(tcpStream);
+                    if (foundChatRoom)
+                    {
+                        ConnectedToChatRoom(tcpStream, selectedChatRoom, name);
+                        break;
+                    }
+                    else
+                        Console.WriteLine("Could not find chat room, please try again");
                 }
-                else
-                    Console.WriteLine("Could not find chat room, please try again");
+                catch (InvalidServerResponseException)
+                {
+                    Console.WriteLine("ERROR! Invalid response from the server");
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine(e.Message);
+                }
             }
         }
 
@@ -306,11 +378,14 @@ namespace KrypteringClient
 
         static void ListenForIncomingChatMessages(NetworkStream tcpStream, List<char> ownMessage, int chatRoomId)
         {
-            string newMessage = SocketComm.RecvMsg(tcpStream);
-            ChatLogManager.AddNewMessage(chatRoomId, newMessage);
-            string formattedMessage = ChatLogManager.GetLastMessage(chatRoomId);
-            WriteNewMessage(formattedMessage);
-            WriteOwnMessage(ownMessage);
+            while(true)
+            { 
+                string newMessage = SocketComm.RecvMsg(tcpStream);
+                ChatLogManager.AddNewMessage(chatRoomId, newMessage);
+                string formattedMessage = ChatLogManager.GetLastMessage(chatRoomId);
+                WriteNewMessage(formattedMessage);
+                WriteOwnMessage(ownMessage);
+            }
         }
 
         static void WriteNewMessage(string newMsg)
@@ -344,8 +419,10 @@ namespace KrypteringClient
             string serverResponse = SocketComm.RecvMsg(tcpStream);
             if (serverResponse == "accepted")
                 return true;
-            else
+            else if (serverResponse == "denied")
                 return false;
+            else
+                throw new InvalidServerResponseException();
         }
         static int ParseInt()
         {
@@ -361,10 +438,6 @@ namespace KrypteringClient
                 {
                     Console.WriteLine("ERROR! " + e.Message);
                 }
-            }
-            void temp()
-            {
-
             }
         }
     }
