@@ -51,7 +51,7 @@ namespace KrypteringClient
 
                     case 2:
                         SocketComm.SendMsg(tcpStream, "login");
-                        Login(tcpClient, tcpStream);
+                        Login(tcpStream);
                         break;
 
                     case 3:
@@ -125,7 +125,7 @@ namespace KrypteringClient
             }
         }
 
-        static void Login(TcpClient tcpClient, NetworkStream tcpStream)
+        static void Login(NetworkStream tcpStream)
         {
             bool loggingIn = true;
             bool insertingPassword = false;
@@ -172,7 +172,7 @@ namespace KrypteringClient
                     if (correctPassword)
                     {
                         insertingPassword = false;
-                        LoggedInMenu(tcpClient, tcpStream, username);
+                        LoggedInMenu(tcpStream, username);
                     }
                     else
                     {
@@ -196,7 +196,7 @@ namespace KrypteringClient
             }
         }
 
-        static void LoggedInMenu(TcpClient tcpClient, NetworkStream tcpStream, string username)
+        static void LoggedInMenu(NetworkStream tcpStream, string username)
         {
             Console.Clear();
             List<string> userInfo = SocketComm.RecvListOfStrings(tcpStream);
@@ -222,7 +222,7 @@ namespace KrypteringClient
 
                     case 2:
                         ViewAllChatRooms(chatRooms);
-                        SelectChatRoom(tcpClient, tcpStream, chatRooms, username);
+                        SelectChatRoom(tcpStream, chatRooms, username);
                         break;
 
                     case 3:
@@ -269,7 +269,7 @@ namespace KrypteringClient
             }
         }
 
-        static void SelectChatRoom(TcpClient tcpClient, NetworkStream tcpStream, List<string> chatRooms, string name)
+        static void SelectChatRoom(NetworkStream tcpStream, List<string> chatRooms, string name)
         {
             SocketComm.SendMsg(tcpStream, "chatroom");
             Console.WriteLine("Please enter the number of the chat ID that you wish to join, or enter -1 if you wish to go back");
